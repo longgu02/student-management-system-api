@@ -12,6 +12,9 @@ const attendanceSchema = mongoose.Schema({
     class_id:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Class'
+    }, 
+    note:{
+        type: String
     }
 })
 

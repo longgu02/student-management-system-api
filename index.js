@@ -34,12 +34,12 @@ const teacherRoute = require('./routes/teacher.route');
 const mentorRoute = require('./routes/mentor.route');
 const attendanceRoute = require('./routes/attendance.route');
 
-app.use('/api/v1/user', userRoute);
-app.use('/api/v1/class', classRoute);
-app.use('/api/v1/student', studentRoute);
-app.use('/api/v1/teacher', teacherRoute);
-app.use('/api/v1/mentor', mentorRoute);
-app.use('/api/v1/attend', attendanceRoute);
+app.use('/api/v1/users', userRoute);
+app.use('/api/v1/classes', classRoute);
+app.use('/api/v1/students', studentRoute);
+app.use('/api/v1/teachers', teacherRoute);
+app.use('/api/v1/mentors', mentorRoute);
+app.use('/api/v1/attends', attendanceRoute);
 
 app.get('*', function(req, res) {
     res.status(404).json({error: 'Not Found'});

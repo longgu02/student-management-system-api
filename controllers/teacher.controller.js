@@ -4,17 +4,22 @@ const UserModel = require('../models/user.model');
 module.exports = {
     get: async (req,res) => {
         let teachers;
+        let teachersQueried;
         const query = req.query || {};
         try{
-            teachers = await TeacherModel.find(query).populate('user_id');
+            teachersQueried = await TeacherModel.find(query).lean().populate({
+                    path: 'user_id',
+                    select: 'firstName lastName fullName date_of_birth gender email'
+            });
+            teachers = teachersQueried.map((teacher) => {
+                teacher.user_id._id = undefined;                
+                teacherTransform = {...teacher.user_id,...teacher};
+                teacherTransform.user_id = undefined;
+                return teacherTransform;
+            })
         }catch(err) {
             return res.status(201).json({error:err})
         };
-        if(teachers){
-            for(var teacher of teachers){
-                teacher.user_id.password = undefined;
-            };
-        }
         return res.json(teachers)
     },
     post: async (req,res) => {
@@ -25,7 +30,7 @@ module.exports = {
         var newTeacher = new TeacherModel({
             user_id: req.params.id,
             exp: req.body.exp,
-            subject: req.body.subject
+            subjectName: req.body.subjectName
         })
         try{
             newTeacher.save();
@@ -44,7 +49,7 @@ module.exports = {
         };
         try{
             if(req.body.exp) {teacher.exp = req.body.exp};
-            if(req.body.subject) {teacher.subject = req.body.subject};
+            if(req.body.subjectName) {teacher.subjectName = req.body.subjectName};
             teacher.save();
         }catch(err){
             return res.status(201).json({error:err})

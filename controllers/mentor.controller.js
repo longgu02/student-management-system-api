@@ -3,17 +3,22 @@ const UserModel = require('../models/user.model');
 module.exports = {
     get: async (req,res) => {
         let mentors;
+        let mentorsQueried
         var query = req.query || {};
         try{
-            mentors = await MentorModel.find(query).populate('user_id'); 
+            mentorsQueried = await MentorModel.find(query).lean().populate({
+                path: 'user_id',
+                select: 'firstName lastName fullName date_of_birth gender email'
+        });
+            mentors = mentorsQueried.map((mentor) => {
+                mentor.user_id._id = undefined;                
+                mentorTransform = {...mentor.user_id,...mentor};
+                mentorTransform.user_id = undefined;
+                return mentorTransform;
+            }) 
         }catch(err){
             return res.status(201).json({error:err});
         }
-        if(mentors){
-            for(var mentor of mentors){
-                mentor.user_id.password = undefined;
-            };
-        };
         return res.json(mentors)
     },
     post: async (req,res) => {
@@ -24,7 +29,7 @@ module.exports = {
         var newMentor = new MentorModel({
             user_id: req.params.id,
             exp: req.body.exp,
-            subject: req.body.subject
+            subjectName: req.body.subjectName
         });
         try{
             newMentor.save();
@@ -43,7 +48,7 @@ module.exports = {
         };
         try{
             if(req.body.exp) {mentor.exp = req.body.exp};
-            if(req.body.subject) {mentor.subject = req.body.subject};
+            if(req.body.subjectName) {mentor.subjectName = req.body.subjectName};
             mentor.save();
         }catch(err){
             return res.status(201).json({error:err})

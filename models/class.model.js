@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const classSchema = mongoose.Schema({
-    class_name: {
+    className: {
         type: String,
         require: true
     },
@@ -10,6 +10,10 @@ const classSchema = mongoose.Schema({
         ref: 'Teacher',
         require: true
     },
+    subjectName:{
+        type: String,
+        enum: ['TOÁN', 'LÝ', 'HÓA', 'VĂN', 'ANH', 'SINH', 'SỬ', 'ĐỊA', 'GDCD']
+    },
     grade: {
         type: Number,
         enum: [1,2,3,4,5,6,7,8,9,10,11,12],
@@ -17,26 +21,20 @@ const classSchema = mongoose.Schema({
     },
     mentor_id: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Mentor'
+        ref: 'Mentor',
     },
-    timetables: [{
-        start:{
-            hour: Number,
-            minute: Number
+    timetable:{
+        startTime:{
+            type: String
         },
-        end:{
-            hour: Number,
-            minute: Number
+        endTime:{
+            type: String
         },
-        day: {
+        schedule: {
             type: Number,
             enum: [2,3,4,5,6,7,8]
         }
-    }],
-    student_ids:[{
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Student'
-    }]
+    },
 })
 
 module.exports = mongoose.model('Class', classSchema);

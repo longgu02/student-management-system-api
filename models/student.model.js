@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const studentSchema = mongoose.Schema({
-    school_name:{
+    school:{
         type: String
     },
     grade:{
@@ -11,7 +11,24 @@ const studentSchema = mongoose.Schema({
     user_id:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
-    }
+    },
+    status: {
+        type: String,
+        enum: ["active", "inactive"]  
+    },
+    studentPhone: {
+        type: String
+    },
+    parentPhone: {
+        type: String
+    },
+    parentName: {
+        type: String
+    },
+    listClass: [{
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Class'
+    }]
 })
 
 module.exports = mongoose.model('Student', studentSchema)

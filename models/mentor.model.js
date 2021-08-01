@@ -4,7 +4,7 @@ const mentorSchema = mongoose.Schema({
     exp:{
         type: Number
     },
-    subject:{
+    subjectName:{
         type: String,
         enum: ['TOÁN', 'LÝ', 'HÓA', 'VĂN', 'ANH', 'SINH', 'SỬ', 'ĐỊA', 'GDCD']
     },

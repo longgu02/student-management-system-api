@@ -2,6 +2,20 @@ const AttendanceModel = require('../models/attendance.model');
 const StudentModel = require('../models/student.model');
 const ClassModel = require('../models/class.model');
 
+function timeToMs(timeString) {
+    var timeArray = timeString.split(":")
+    return parseInt(timeArray[0])* 3600000 + parseInt(timeArray[1])* 60000 + parseInt(timeArray[2])*1000
+}
+function msToTime(s) {
+    var ms = s % 1000;
+    s = (s - ms) / 1000;
+    var secs = s % 60;
+    s = (s - secs) / 60;
+    var mins = s % 60;
+    var hrs = (s - mins) / 60;
+  
+    return hrs + ':' + mins + ':' + secs;
+  }
 
 module.exports = {
     get: async (req,res) => {
@@ -13,7 +27,17 @@ module.exports = {
         let student;
         let matchedClass;
         try{
-            student = await StudentModel.findById(req.params.id).populate('user_id') 
+            student = await StudentModel.findById(req.params.id).lean().populate({
+                path: 'user_id listClass',
+                select: 'firstName lastName fullName date_of_birth gender email timetable grade className',
+                populate: {
+                    path: 'teacher_id mentor_id',
+                    populate:{
+                        path: 'user_id',
+                        select: 'firstName lastName fullName date_of_birth gender email'
+                    } 
+                }
+            }) 
         }catch(err){
             return res.status(201).json({error:err})
         }
@@ -31,157 +55,73 @@ module.exports = {
         weekday[5] = 6;
         weekday[6] = 7;
         var currentWeekday = weekday[currentDate.getDay()];
-        var currentHours = currentDate.getHours();
-        var currentMinutes = currentDate.getMinutes();
-        // var currentTime = currentHours + ':' + currentMinutes;
+        var currentTime = currentDate.getHours() + ':' + currentDate.getMinutes() + ':' + currentDate.getSeconds();
+        let countedTime;
+        if(currentDate.getMinutes() >= 30){
+            countedTime = currentDate.getHours() + ':' + (currentDate.getMinutes() + 30) + ':' + currentDate.getSeconds();
+        }else{
+            countedTime = (currentDate.getHours() + 1) + ':' + (currentDate.getMinutes() - 30) + ':' + currentDate.getSeconds();
+        }
+        // Giờ bắt đầu - 30 phút < thời gian hiện tại < giờ kết thúc
         try{
             matchedClass = await ClassModel.find({
-                $or: [{
-                    $and: [{
-                    "timetables.0.day": currentWeekday,
-                    $or: [
-                        {"timetables.0.start.hour": {$lte: currentHours}},
-                        {$and: [{"timetables.0.start.hour": currentHours}, {"timetables.0.start.minute": {$lte: currentMinutes}}]}
-                    ],
-                    $or: [
-                        {"timetables.0.end.hour": {$gte: currentHours}},
-                        {$and: [{"timetables.0.end.hour": currentHours}, {"timetables.0.end.minute": {$gte: currentMinutes}}]}
-                    ],
-                    "grade": student.grade
-                    }]
-                },{
-                    $and: [{
-                    "timetables.1.day": currentWeekday,
-                    $or: [
-                        {"timetables.1.start.hour": {$lte: currentHours}},
-                        {$and: [{"timetables.1.start.hour": currentHours}, {"timetables.1.start.minute": {$lte: currentMinutes}}]}
-                    ],
-                    $or: [
-                        {"timetables.1.end.hour": {$gte: currentHours}},
-                        {$and: [{"timetables.1.end.hour": currentHours}, {"timetables.1.end.minute": {$gte: currentMinutes}}]}
-                    ],
-                    "grade": student.grade
-                    }]
-                },{
-                    $and: [{
-                    "timetables.2.day": currentWeekday,
-                    $or: [
-                        {"timetables.2.start.hour": {$lte: currentHours}},
-                        {$and: [{"timetables.2.start.hour": currentHours}, {"timetables.2.start.minute": {$lte: currentMinutes}}]}
-                    ],
-                    $or: [
-                        {"timetables.2.end.hour": {$gte: currentHours}},
-                        {$and: [{"timetables.2.end.hour": currentHours}, {"timetables.2.end.minute": {$gte: currentMinutes}}]}
-                    ],
-                    "grade": student.grade
-                    }]
-                },{
-                    $and: [{
-                    "timetables.3.day": currentWeekday,
-                    $or: [
-                        {"timetables.3.start.hour": {$lte: currentHours}},
-                        {$and: [{"timetables.3.start.hour": currentHours}, {"timetables.3.start.minute": {$lte: currentMinutes}}]}
-                    ],
-                    $or: [
-                        {"timetables.3.end.hour": {$gte: currentHours}},
-                        {$and: [{"timetables.3.end.hour": currentHours}, {"timetables.3.end.minute": {$gte: currentMinutes}}]}
-                    ],
-                    "grade": student.grade
-                    }]
-                },{
-                    $and: [{
-                    "timetables.4.day": currentWeekday,
-                    $or: [
-                        {"timetables.4.start.hour": {$lte: currentHours}},
-                        {$and: [{"timetables.1.start.hour": currentHours}, {"timetables.4.start.minute": {$lte: currentMinutes}}]}
-                    ],
-                    $or: [
-                        {"timetables.4.end.hour": {$gte: currentHours}},
-                        {$and: [{"timetables.4.end.hour": currentHours}, {"timetables.4.end.minute": {$gte: currentMinutes}}]}
-                    ],
-                    "grade": student.grade
-                    }]
-                }],
-                student_ids: {$in: [student._id]}
+                $and: [
+                    {"timetable.startTime": {$lte: countedTime}},
+                    {"timetable.endTime": {$gte: currentTime}},
+                    {"timetable.schedule": currentWeekDay}
+                ],
+                grade: student.grade,
+                _id: {$in: student.listClass}
             });
         }catch(err){
             return res.status(201).json({error:err})
         }
         // Trùng giờ nhiều lớp
-        if(matchedClass.length >= 2){
+        if(matchedClass.length >= 2 && typeof(matchedClass) == "array"){
+            // Đưa ra dự báo lớp gần nhất (nếu không đúng thì có options chọn lại)
+                predictedClass = matchedClass.find((item) => {
+                    var startTimeMs = timeToMs(item.timetable.startTime)
+                    var currentTimeMs = timeToMs(item.timetable.currentTime)
+                    // Ưu tiên lớp có thời gian bắt đầu trong khoảng sớm hoặc muộn 30p so với thời gian hiện tại
+                        return currentTimeMs >= startTimeMs - (30*60000) && currentTimeMs <= startTimeMs + (30*60000)
+                })
+                if(predictedClass){
+                    return res.json({student:student, predictedClass: predictedClass, allClass: matchedClass})
+                }
             return res.json({student: student,message:"More Than 1 Class Found", class: matchedClass})
         }
-        if(matchedClass){
-            return res.json({student: student, matchedClass: matchedClass})
+        if(!matchedClass){
+            let classIds = [];
+            let nearPastAttendance;
+            let allPredictedClass = [];
+            const thisWeek = new Date(Date.now() - (currentWeekDay - 1) * 24 * 60 * 60 * 1000 - timeToMs(item.timetable.currentTime))
+            // Dự đoán lớp học bù
+            availableClass = await ClassModel.find({
+                $and: [
+                    {"timetable.startTime": {$lte: countedTime}},
+                    {"timetable.endTime": {$gte: currentTime}},
+                    {"timetable.schedule": currentWeekDay}
+                ],
+                grade: student.grade
+            });
+            for(var eachClass of student.listClass){
+                classIds.push(eachClass._id)
+            }
+            nearPastAttendance = await AttendanceModel.find({
+                time: {$gte: weekAgo},
+            })
+            for(var attendance of nearPastAttendance){
+                var index = classIds.indexOf(attendance)
+                if (index > -1) {
+                    array.splice(index, 1);
+                }
+            }
+            allPredictedClass = await ClassModel.find({_id: {$in: classIds}}).lean()
+            allPredictedClass = allPredictedClass.sort((a,b) => {
+                return a.timetable.schedule - b.timetable.schedule;
+            })
+            return res.json({student: student, predictedClass = allPredictedClass[0], allPredictedClass = allPredictedClass})
         }
-        suggestedClass = await ClassModel.find({
-            $or: [{
-                $and: [{
-                "timetables.0.day": currentWeekday,
-                $or: [
-                    {"timetables.0.start.hour": {$lte: currentHours}},
-                    {$and: [{"timetables.0.start.hour": currentHours}, {"timetables.0.start.minute": {$lte: currentMinutes}}]}
-                ],
-                $or: [
-                    {"timetables.0.end.hour": {$gte: currentHours}},
-                    {$and: [{"timetables.0.end.hour": currentHours}, {"timetables.0.end.minute": {$gte: currentMinutes}}]}
-                ],
-                "grade": student.grade
-                }]
-            },{
-                $and: [{
-                "timetables.1.day": currentWeekday,
-                $or: [
-                    {"timetables.1.start.hour": {$lte: currentHours}},
-                    {$and: [{"timetables.1.start.hour": currentHours}, {"timetables.1.start.minute": {$lte: currentMinutes}}]}
-                ],
-                $or: [
-                    {"timetables.1.end.hour": {$gte: currentHours}},
-                    {$and: [{"timetables.1.end.hour": currentHours}, {"timetables.1.end.minute": {$gte: currentMinutes}}]}
-                ],
-                "grade": student.grade
-                }]
-            },{
-                $and: [{
-                "timetables.2.day": currentWeekday,
-                $or: [
-                    {"timetables.2.start.hour": {$lte: currentHours}},
-                    {$and: [{"timetables.2.start.hour": currentHours}, {"timetables.2.start.minute": {$lte: currentMinutes}}]}
-                ],
-                $or: [
-                    {"timetables.2.end.hour": {$gte: currentHours}},
-                    {$and: [{"timetables.2.end.hour": currentHours}, {"timetables.2.end.minute": {$gte: currentMinutes}}]}
-                ],
-                "grade": student.grade
-                }]
-            },{
-                $and: [{
-                "timetables.3.day": currentWeekday,
-                $or: [
-                    {"timetables.3.start.hour": {$lte: currentHours}},
-                    {$and: [{"timetables.3.start.hour": currentHours}, {"timetables.3.start.minute": {$lte: currentMinutes}}]}
-                ],
-                $or: [
-                    {"timetables.3.end.hour": {$gte: currentHours}},
-                    {$and: [{"timetables.3.end.hour": currentHours}, {"timetables.3.end.minute": {$gte: currentMinutes}}]}
-                ],
-                "grade": student.grade
-                }]
-            },{
-                $and: [{
-                "timetables.4.day": currentWeekday,
-                $or: [
-                    {"timetables.4.start.hour": {$lte: currentHours}},
-                    {$and: [{"timetables.1.start.hour": currentHours}, {"timetables.4.start.minute": {$lte: currentMinutes}}]}
-                ],
-                $or: [
-                    {"timetables.4.end.hour": {$gte: currentHours}},
-                    {$and: [{"timetables.4.end.hour": currentHours}, {"timetables.4.end.minute": {$gte: currentMinutes}}]}
-                ],
-                "grade": student.grade
-                }]
-            }]
-        });
         return res.status(400).json({student:student, classes: matchedClass})
     },
     post: (req,res) => {

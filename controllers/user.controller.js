@@ -6,7 +6,7 @@ module.exports = {
 		const query = req.query || {};
 		let users;
 		try {
-			users = await UserModel.find(query).select('_id first_name last_name date_of_birth gender email role username');
+			users = await UserModel.find(query).select('_id firstName lastName date_of_birth gender email role username');
 		} catch (err) {
 			return res.status(201).json({error: err});
 		}
@@ -14,8 +14,9 @@ module.exports = {
 	},
 	post: async (req, res) => {
 		let user = new UserModel({
-			first_name: req.body.first_name,
-			last_name: req.body.last_name,
+			firstName: req.body.firstName,
+			lastName: req.body.lastName,
+			full_name: req.body.lastName + ' ' + req.body.firstName,
 			date_of_birth: req.body.date_of_birth,
 			gender: req.body.gender,
 			email: req.body.email,
@@ -40,14 +41,15 @@ module.exports = {
 			return res.status(404).json({error: err});
 		}
 		try {
-			if (req.body.first_name) user.first_name = req.body.first_name;
-			if (req.body.last_name) user.last_name = req.body.last_name;
-			if (req.body.date_of_birth) user.date_of_birth = req.body.date_of_birth;
-			if (req.body.gender) user.gender = req.body.gender;
-			if (req.body.email) user.email = req.body.email;
-			if (req.body.role) user.role = req.body.role;
-			if (req.body.username) user.username = req.body.username;
-			if (req.body.password) user.password = sha256(req.body.password);
+			if (req.body.firstName){user.firstName = req.body.firstName}
+			if (req.body.lastName) {user.lastName = req.body.lastName};
+			if(req.body.firstName || req.body.lastName){user.full_name = user.lastName + ' ' + user.firstName}
+			if (req.body.date_of_birth) {user.date_of_birth = req.body.date_of_birth};
+			if (req.body.gender) {user.gender = req.body.gender};
+			if (req.body.email) {user.email = req.body.email};
+			if (req.body.role) {user.role = req.body.role};
+			if (req.body.username) {user.username = req.body.username};
+			if (req.body.password) {user.password = sha256(req.body.password)};
 			await user.save();
 		} catch (err) {
 			return res.status(201).json({error: err});
