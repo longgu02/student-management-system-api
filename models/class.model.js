@@ -5,7 +5,7 @@ const classSchema = mongoose.Schema({
         type: String,
         require: true
     },
-    teacher_id: {
+    teacherId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Teacher',
         require: true
@@ -19,7 +19,7 @@ const classSchema = mongoose.Schema({
         enum: [1,2,3,4,5,6,7,8,9,10,11,12],
         require: true
     },
-    mentor_id: {
+    mentorId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Mentor',
     },

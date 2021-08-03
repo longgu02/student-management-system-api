@@ -4,12 +4,13 @@ const recordSchema = mongoose.Schema({
     name: {
         type: String
     },
-    class_id: {
+    classId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Class'
     },
     type: {
         type: String,
+        enum: ["VỞ" ,"BTVN", 15, 50, 90, 120],
         required: true
     },
     date: {

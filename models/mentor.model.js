@@ -8,7 +8,7 @@ const mentorSchema = mongoose.Schema({
         type: String,
         enum: ['TOÁN', 'LÝ', 'HÓA', 'VĂN', 'ANH', 'SINH', 'SỬ', 'ĐỊA', 'GDCD']
     },
-    user_id:{
+    userId:{
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }

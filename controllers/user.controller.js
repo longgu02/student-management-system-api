@@ -2,6 +2,7 @@ const UserModel = require('../models/user.model');
 const sha256 = require('sha256'); // hash password
 
 module.exports = {
+    //=========================================================GET USERS, OR LOW LEVEL QUERY===================================================//
 	get: async (req, res) => {
 		const query = req.query || {};
 		let users;
@@ -12,11 +13,12 @@ module.exports = {
 		}
 		return res.json({users});
 	},
+    //========================================================= CREATE USERS ======================================================//
 	post: async (req, res) => {
 		let user = new UserModel({
 			firstName: req.body.firstName,
 			lastName: req.body.lastName,
-			full_name: req.body.lastName + ' ' + req.body.firstName,
+			fullName: req.body.lastName + ' ' + req.body.firstName,
 			date_of_birth: req.body.date_of_birth,
 			gender: req.body.gender,
 			email: req.body.email,
@@ -32,6 +34,7 @@ module.exports = {
 		user.password = undefined;
 		return res.json({user});
 	},
+    //========================================================= EDIT USER'S INFORMATION ===================================================//
 	put: async (req, res) => {
 		let user;
 		try {
@@ -43,7 +46,7 @@ module.exports = {
 		try {
 			if (req.body.firstName){user.firstName = req.body.firstName}
 			if (req.body.lastName) {user.lastName = req.body.lastName};
-			if(req.body.firstName || req.body.lastName){user.full_name = user.lastName + ' ' + user.firstName}
+			if(req.body.firstName || req.body.lastName){user.fullName = user.lastName + ' ' + user.firstName}
 			if (req.body.date_of_birth) {user.date_of_birth = req.body.date_of_birth};
 			if (req.body.gender) {user.gender = req.body.gender};
 			if (req.body.email) {user.email = req.body.email};
@@ -57,6 +60,7 @@ module.exports = {
 		user.password = undefined;
 		return res.json({user});
 	},
+    //========================================================= DELETE USER ===================================================//
 	delete: async (req, res) => {
 		let user;
 		try {

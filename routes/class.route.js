@@ -10,7 +10,7 @@ router.put('/:classId', controller.put);
 router.delete('/:classId', controller.delete);
 // ADD STUDENT & REMOVE STUDENT
 router.put('/add-student/:id', controller.addStudent)
-router.delete('/remove-student/:studentId/:classId', controller.removeStudent)
+router.put('/remove-student/:classId/:studentId', controller.removeStudent)
 // QUERY
 // router.get('/detail', controller.query);
 router.get('/detail/:id', controller.classView)
@@ -18,4 +18,4 @@ router.get('/grade/:grade', controller.queryGrade)
 // ATTENDANCE
 router.get('/detail/:id/attendances', controller.attendanceView)
 
-module.exports = router
+module.exports = router;

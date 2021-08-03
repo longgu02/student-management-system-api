@@ -2,10 +2,13 @@ const AttendanceModel = require('../models/attendance.model');
 const StudentModel = require('../models/student.model');
 const ClassModel = require('../models/class.model');
 
+// TIME TO MILISECONDS
 function timeToMs(timeString) {
     var timeArray = timeString.split(":")
     return parseInt(timeArray[0])* 3600000 + parseInt(timeArray[1])* 60000 + parseInt(timeArray[2])*1000
 }
+
+// MILISECONDS TO TIME
 function msToTime(s) {
     var ms = s % 1000;
     s = (s - ms) / 1000;
@@ -18,7 +21,9 @@ function msToTime(s) {
   }
 
 module.exports = {
+    //========================================================= NFC,QR URL TO CONFIRM ATTENDANCE ===================================================//
     get: async (req,res) => {
+        // IP ADDRESS FOR CONFIRMING ATTENDANCE
         const properIp = '...'; // Required Ip Address
         // if(req.socket.remoteAddress !== properIp){
         //     return res.json({message:"Nghi vấn gian lận"})
@@ -28,22 +33,26 @@ module.exports = {
         let matchedClass;
         try{
             student = await StudentModel.findById(req.params.id).lean().populate({
-                path: 'user_id listClass',
+                path: 'userId listClass',
                 select: 'firstName lastName fullName date_of_birth gender email timetable grade className',
                 populate: {
-                    path: 'teacher_id mentor_id',
+                    path: 'teacherId mentorId',
                     populate:{
-                        path: 'user_id',
+                        path: 'userId',
                         select: 'firstName lastName fullName date_of_birth gender email'
                     } 
                 }
-            }) 
+            })
+            student.userId._id = undefined;
+            student = {...student.userId,...student};
+            student.userId = undefined; 
+            student.__v = undefined;
         }catch(err){
             return res.status(201).json({error:err})
         }
         if(student){
-            if(student.user_id)
-            student.user_id.password = undefined;
+            if(student.userId)
+            student.userId.password = undefined;
         }
         var currentDate = new Date();
         var weekday = new Array(7);
@@ -58,17 +67,17 @@ module.exports = {
         var currentTime = currentDate.getHours() + ':' + currentDate.getMinutes() + ':' + currentDate.getSeconds();
         let countedTime;
         if(currentDate.getMinutes() >= 30){
-            countedTime = currentDate.getHours() + ':' + (currentDate.getMinutes() + 30) + ':' + currentDate.getSeconds();
-        }else{
             countedTime = (currentDate.getHours() + 1) + ':' + (currentDate.getMinutes() - 30) + ':' + currentDate.getSeconds();
+        }else{
+            countedTime = currentDate.getHours() + ':' + (currentDate.getMinutes() + 30) + ':' + currentDate.getSeconds();
         }
-        // Giờ bắt đầu - 30 phút < thời gian hiện tại < giờ kết thúc
+        // START TIME - 30 MINS < CURRENT TIME < END TIME
         try{
             matchedClass = await ClassModel.find({
                 $and: [
                     {"timetable.startTime": {$lte: countedTime}},
                     {"timetable.endTime": {$gte: currentTime}},
-                    {"timetable.schedule": currentWeekDay}
+                    {"timetable.schedule": currentWeekday}
                 ],
                 grade: student.grade,
                 _id: {$in: student.listClass}
@@ -76,58 +85,74 @@ module.exports = {
         }catch(err){
             return res.status(201).json({error:err})
         }
-        // Trùng giờ nhiều lớp
-        if(matchedClass.length >= 2 && typeof(matchedClass) == "array"){
-            // Đưa ra dự báo lớp gần nhất (nếu không đúng thì có options chọn lại)
+        // QUERIED MULTIPLE CLASSES AT THE SAME TIME
+        if(matchedClass.length >= 2){
+            // GIVING PREDICTION (CAN RECHOOSE IF NOT TRUE)
                 predictedClass = matchedClass.find((item) => {
                     var startTimeMs = timeToMs(item.timetable.startTime)
-                    var currentTimeMs = timeToMs(item.timetable.currentTime)
-                    // Ưu tiên lớp có thời gian bắt đầu trong khoảng sớm hoặc muộn 30p so với thời gian hiện tại
+                    var currentTimeMs = timeToMs(currentTime)
+                    // PRIOR CLASS THAT ITS START TIME IN RANGE OF 30 MINS EARLIER AND 30 MINS LATER
                         return currentTimeMs >= startTimeMs - (30*60000) && currentTimeMs <= startTimeMs + (30*60000)
                 })
+                student.listClass = undefined;
                 if(predictedClass){
                     return res.json({student:student, predictedClass: predictedClass, allClass: matchedClass})
                 }
             return res.json({student: student,message:"More Than 1 Class Found", class: matchedClass})
         }
-        if(!matchedClass){
+        if(matchedClass.length == 0){
             let classIds = [];
             let nearPastAttendance;
-            let allPredictedClass = [];
-            const thisWeek = new Date(Date.now() - (currentWeekDay - 1) * 24 * 60 * 60 * 1000 - timeToMs(item.timetable.currentTime))
-            // Dự đoán lớp học bù
-            availableClass = await ClassModel.find({
+            let absencedClass = [];
+            let availableClasses;
+            const thisWeek = new Date(Date.now() - (currentWeekday - 1) * 24 * 60 * 60 * 1000 - timeToMs(currentTime))
+            // ------------------ GIVING MAKE UP CLASS PREDICTION ------------------- //
+            // QUERY AVAILABLE CLASS AT THE MOMENT
+            availableClasses = await ClassModel.find({
                 $and: [
                     {"timetable.startTime": {$lte: countedTime}},
                     {"timetable.endTime": {$gte: currentTime}},
-                    {"timetable.schedule": currentWeekDay}
+                    {"timetable.schedule": currentWeekday}
                 ],
                 grade: student.grade
-            });
+            }).lean();
+            // PUSH ALL STUDENT'S CLASS IDS TO AN ARRAY
             for(var eachClass of student.listClass){
                 classIds.push(eachClass._id)
             }
+            // QUERY ATTENDANCE FORM THE BEGINING OF THE WEEK 
             nearPastAttendance = await AttendanceModel.find({
-                time: {$gte: weekAgo},
-            })
+                time: {$gte: thisWeek},
+                studentId: req.params.id // STUDENT'S ID
+            }).lean()
+            // DELETE EXIST CLASS IDS THAT ALREADY HAVE ATTENDANCE
             for(var attendance of nearPastAttendance){
                 var index = classIds.indexOf(attendance)
                 if (index > -1) {
                     array.splice(index, 1);
                 }
             }
-            allPredictedClass = await ClassModel.find({_id: {$in: classIds}}).lean()
-            allPredictedClass = allPredictedClass.sort((a,b) => {
+            // QUERY 
+            absencedClass = await ClassModel.find({_id: {$in: classIds}}).lean()
+            var priorAbsencedClass = absencedClass.sort((a,b) => {
                 return a.timetable.schedule - b.timetable.schedule;
             })
-            return res.json({student: student, predictedClass = allPredictedClass[0], allPredictedClass = allPredictedClass})
+            // FIND BASE ON SUBJECT, GRADE AND CLASSTIME
+            var predictedMakeUpClass = availableClasses.find((item) => {
+                return item.subjectName == priorAbsencedClass[0].subjectName && timeToMs(item.timetable.startTime) - timeToMs(item.timetable.startTime) == (timeToMs(priorAbsencedClass[0].timetable.startTime) - timeToMs(priorAbsencedClass[0].timetable.startTime))
+            })
+            student.listClass = undefined;
+            if(predictedMakeUpClass) {predictedMakeUpClass.__v = undefined;}
+            return res.json({student: student, predictedClass: predictedMakeUpClass, availableClasses: availableClasses})
         }
-        return res.status(400).json({student:student, classes: matchedClass})
+        student.listClass = undefined;
+        return res.json({student:student, classes: matchedClass})
     },
+    //==================================================== AUTOMATICALLY CREATE ATTENDANCE RECORD =================================================//
     post: (req,res) => {
         var attendance = new AttendanceModel({
-            student_id: req.params.studentId,
-            class_id: req.params.classId,
+            studentId: req.params.studentId,
+            classId: req.params.classId,
         })
         try{
             attendance.save();
@@ -136,12 +161,13 @@ module.exports = {
         }
         res.json("Successfully")
     },
+    //========================================================= DELETE ATTENDANCE RECORD (EDIT TO ABSENCE) ===================================================//
     delete: async (req,res) => {
         try{
             await AttendanceModel.findByIdAndDelete(req.params.id);
         }catch(err){
             return res.status(201).json({error:err});
         }
-        return res.json("Deleted Successfully")
+        return res.json({result:"deleted successfully"})
     }
 }

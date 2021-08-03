@@ -1,19 +1,21 @@
 const MentorModel = require('../models/mentor.model');
 const UserModel = require('../models/user.model');
 module.exports = {
+    //========================================================= GET MENTOR, OR LOW LEVEL QUERY ===================================================//
     get: async (req,res) => {
         let mentors;
         let mentorsQueried
         var query = req.query || {};
         try{
             mentorsQueried = await MentorModel.find(query).lean().populate({
-                path: 'user_id',
+                path: 'userId',
                 select: 'firstName lastName fullName date_of_birth gender email'
         });
+        //JSON BEAUTIFY
             mentors = mentorsQueried.map((mentor) => {
-                mentor.user_id._id = undefined;                
-                mentorTransform = {...mentor.user_id,...mentor};
-                mentorTransform.user_id = undefined;
+                mentor.userId._id = undefined;                
+                mentorTransform = {...mentor.userId,...mentor};
+                mentorTransform.userId = undefined;
                 return mentorTransform;
             }) 
         }catch(err){
@@ -21,13 +23,15 @@ module.exports = {
         }
         return res.json(mentors)
     },
+    //========================================================= CREATE NEW MENTOR ===================================================//
     post: async (req,res) => {
         var matchedUser = await UserModel.findById(req.params.id);
+        // ROLE VALIDATION
         if(matchedUser.role !== "MENTOR"){
             return res.status(201).json({error: "User's role is not MENTOR"})
         }        
         var newMentor = new MentorModel({
-            user_id: req.params.id,
+            userId: req.params.id,
             exp: req.body.exp,
             subjectName: req.body.subjectName
         });
@@ -38,6 +42,7 @@ module.exports = {
         }
         return res.json(newMentor);
     },
+    //========================================================= EDIT MENTOR'S INFORMATION ===================================================//
     put: async (req,res) => {
         let mentor;
         try{
@@ -55,16 +60,17 @@ module.exports = {
         }
         return res.json(mentor);
     },
+    //========================================================= DELETE MENTOR ===================================================//
     delete: async (req,res) => {
         try{
             await MentorModel.findById(req.params.id, null, async (err, mentor) => {
                 if(err || !mentor) throw "Mentor Not Found"
-                await UserModel.findByIdAndDelete(mentor.user_id)
+                await UserModel.findByIdAndDelete(mentor.userId)
                 mentor.remove()
             })
         }catch(err){
             res.status(201).json({error:err})
         }
-        return res.json("deleted successfully")
+        return res.json({result:"deleted successfully"})
     }
 }

@@ -23,8 +23,10 @@
     "cookie-parser": "^1.4.5",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
+    "helmet": "^4.6.0",
+    "imgur": "^1.0.2",
     "mongodb": "^3.6.10",
-    "mongoose": "^5.13.2",
+    "mongoose": "^5.13.5",
     "pug": "^3.0.2",
     "sha256": "^0.2.0"
   },
