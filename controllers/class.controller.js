@@ -111,9 +111,11 @@ module.exports = {
     classView: async (req,res) => {
         let classView;
         let studentIds;
-        let attendance;
+        let makeUpAttendances;
         let studentTransform;
+        let attendances;
         let listStudent;
+        let queriedAttendances;
         // CLASS QUERY
         try{
             classView = await ClassModel.findById(req.params.id).lean().populate({
@@ -161,16 +163,41 @@ module.exports = {
         }
         // ATTENDANCE OF STUDENT IN CLASS 
         try{
-            attendance = await AttendanceModel.find({
-                classId: classView._id
+            queriedAttendances = await AttendanceModel.find({
+                classId: req.params.id,
+            }).lean().populate({
+                path: 'studentId',
+                populate: {
+                    path: 'userId', 
+                    select: 'firstName lastName fullName date_of_birth gender email'
+                }
+            })
+            makeUpAttendances = queriedAttendances.filter((attendance) => {
+                return attendance.studentId.listClass.indexOf(req.params.id) === -1;
+            })
+            attendances = queriedAttendances.filter((attendance) => {
+                return attendance.studentId.listClass.indexOf(req.params.id) !== -1;
             })
         }catch(err){
-            return res.status(201).json({error:err})
-        }
+            return res.status(201).json({error: err})
+        };
+        makeUpAttendances = makeUpAttendances.map((attendance) => {
+            attendance.studentId = {...attendance.studentId,...attendance.studentId.userId}
+            attendance.studentId.userId = undefined;
+            attendance.studentId.__v = undefined;
+            return attendance;
+        });
+        attendances = attendances.map((attendance) => {
+            attendance.studentId = {...attendance.studentId,...attendance.studentId.userId}
+            attendance.studentId.userId = undefined;
+            attendance.studentId.__v = undefined;
+            return attendance;
+        });
         return res.json({
             class: classView,
             listStudent: listStudent,
-            attendance: attendance
+            attendance: attendance,
+            makeUpAttendances: makeUpAttendances
         })
     }, 
     //========================================================= ADD STUDENT TO CLASS ===================================================//
