@@ -1,7 +1,38 @@
 const StudentModel = require('../models/student.model');
 const UserModel = require('../models/user.model');
 const StudentRecordModel = require('../models/student-record.model');
-const AttendanceModel = require('../models/attendance.model')
+const AttendanceModel = require('../models/attendance.model');
+const sha256 = require('sha256'); // hash password
+
+
+function removeVietnameseTones(str) {
+    str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g,"a"); 
+    str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g,"e"); 
+    str = str.replace(/ì|í|ị|ỉ|ĩ/g,"i"); 
+    str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g,"o"); 
+    str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g,"u"); 
+    str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g,"y"); 
+    str = str.replace(/đ/g,"d");
+    str = str.replace(/À|Á|Ạ|Ả|Ã|Â|Ầ|Ấ|Ậ|Ẩ|Ẫ|Ă|Ằ|Ắ|Ặ|Ẳ|Ẵ/g, "A");
+    str = str.replace(/È|É|Ẹ|Ẻ|Ẽ|Ê|Ề|Ế|Ệ|Ể|Ễ/g, "E");
+    str = str.replace(/Ì|Í|Ị|Ỉ|Ĩ/g, "I");
+    str = str.replace(/Ò|Ó|Ọ|Ỏ|Õ|Ô|Ồ|Ố|Ộ|Ổ|Ỗ|Ơ|Ờ|Ớ|Ợ|Ở|Ỡ/g, "O");
+    str = str.replace(/Ù|Ú|Ụ|Ủ|Ũ|Ư|Ừ|Ứ|Ự|Ử|Ữ/g, "U");
+    str = str.replace(/Ỳ|Ý|Ỵ|Ỷ|Ỹ/g, "Y");
+    str = str.replace(/Đ/g, "D");
+    // Some system encode vietnamese combining accent as individual utf-8 characters
+    // Một vài bộ encode coi các dấu mũ, dấu chữ như một kí tự riêng biệt nên thêm hai dòng này
+    str = str.replace(/\u0300|\u0301|\u0303|\u0309|\u0323/g, ""); // ̀ ́ ̃ ̉ ̣  huyền, sắc, ngã, hỏi, nặng
+    str = str.replace(/\u02C6|\u0306|\u031B/g, ""); // ˆ ̆ ̛  Â, Ê, Ă, Ơ, Ư
+    // Remove extra spaces
+    // Bỏ các khoảng trắng liền nhau
+    str = str.replace(/ + /g," ");
+    str = str.trim();
+    // Remove punctuations
+    // Bỏ dấu câu, kí tự đặc biệt
+    str = str.replace(/!|@|%|\^|\*|\(|\)|\+|\=|\<|\>|\?|\/|,|\.|\:|\;|\'|\"|\&|\#|\[|\]|~|\$|_|`|-|{|}|\||\\/g," ");
+    return str;
+}
 
 module.exports = {
     //========================================================= GET STUDENTS, OR LOW LEVEL QUERY ===================================================//
@@ -55,6 +86,22 @@ module.exports = {
     post: async (req,res) => {
         // STUDENT AND MENTOR AT THE SAME TIME CASE?
         var matchedUser = await UserModel.findById(req.params.id);
+        let user = new UserModel({
+			firstName: req.body.firstName,
+			lastName: req.body.lastName,
+			fullName: req.body.lastName + ' ' + req.body.firstName,
+			date_of_birth: req.body.date_of_birth,
+			gender: req.body.gender,
+			email: req.body.email,
+			role: req.body.role,
+			username: req.body.username,
+			password: req.body.password && sha256(req.body.password),
+		});
+		try {
+			await user.save();
+		} catch (err) {
+			return res.status(201).json({error: err});
+		}
         // ROLE VALIDATION
         if(matchedUser.role !== "STUDENT"){
             return res.status(201).json({error: "User's role is not STUDENT"})
@@ -72,7 +119,7 @@ module.exports = {
         }
         // CREATE NEW STUDENT
         var newStudent = new StudentModel({
-            school_name: req.body.school_name,
+            school: req.body.school,
             grade: req.body.grade,
             userId: req.params.id,
             status: "active",
@@ -109,7 +156,7 @@ module.exports = {
             }
         }
         try{
-            if(req.body.school_name) {student.school_name = req.body.school_name};
+            if(req.body.school) {student.school = req.body.school};
             if(req.body.grade) {student.grade = req.body.grade};
             if(req.body.status) {student.status = req.body.status};
             if(req.body.studentPhone){student.studentPhone = req.body.studentPhone};
@@ -216,5 +263,60 @@ module.exports = {
             return res.status(201).json({error:err})
         }
         return res.json({student: student, studentRecords: studentRecords, studentAttendances: studentAttendances}); 
+    },
+    postUserAndStudent: async (req,res) => {
+        var fullName = req.body.lastName + ' ' + req.body.firstName
+        var password = removeVietnameseTones(fullName).split(' ').join('').toLowerCase()
+        let username;
+        if(req.body.studentPhone){username = req.body.studentPhone};
+        if(req.body.parentPhone && !req.body.studentPhone){username = req.body.parentPhone};
+        let user = new UserModel({
+			firstName: req.body.firstName,
+			lastName: req.body.lastName,
+			fullName: fullName,
+			date_of_birth: req.body.date_of_birth,
+			gender: req.body.gender,
+			email: req.body.email,
+            username: username,
+			role: "STUDENT",
+			password: password && sha256(password)
+		});
+		try {
+			await user.save();
+		} catch (err) {
+			return res.status(201).json({error: err});
+		}
+        // CREATE AN ARRAY OF CLASSES WHICH STUDENT TAKE PART IN
+        let listClass = [];
+        if(req.body.classId){
+            if(req.body.classId.length >= 2 && typeof req.body.classId !== 'string'){
+                for(var c of req.body.classId){
+                    listClass.push(c);
+                }
+            }else{
+                listClass.push(req.body.classId)
+            }
+        }
+        // CREATE NEW STUDENT
+        var newStudent = new StudentModel({
+            school: req.body.school,
+            grade: req.body.grade,
+            userId: user._id,
+            status: "active",
+            studentPhone: req.body.studentPhone,
+            parentPhone: req.body.parentPhone,
+            parentName: req.body.parentName,
+            listClass: listClass
+        })
+        try{
+            await newStudent.save();
+        }catch(err){
+            return res.status(201).json({error:err});
+        }
+        user.password = undefined;
+        user.__v = undefined;
+        newStudent.userId = undefined;
+        newStudent.__v = undefined;
+        return res.json({newUser: user,newStudent: newStudent});
     }
 }
