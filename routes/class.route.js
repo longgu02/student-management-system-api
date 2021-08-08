@@ -16,6 +16,7 @@ router.put('/remove-student/:classId/:studentId', controller.removeStudent)
 router.get('/detail/:id', controller.classView)
 router.get('/grade/:grade', controller.queryGrade)
 // ATTENDANCE
-router.get('/detail/:id/attendances', controller.attendanceView)
+router.get('/detail/:id/attendances', controller.getAttendance);
+router.get('/detail/:id/makeup-attendances', controller.getMakeUpAttendance); // MAKEUP 
 
 module.exports = router;

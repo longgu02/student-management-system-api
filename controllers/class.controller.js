@@ -110,10 +110,10 @@ module.exports = {
     //========================================================= GET 1 CLASS (VIEW) ===================================================//
     classView: async (req,res) => {
         let classView;
-        let student_ids;
+        let studentIds;
         let attendance;
         let studentTransform;
-        let listStudent
+        let listStudent;
         // CLASS QUERY
         try{
             classView = await ClassModel.findById(req.params.id).lean().populate({
@@ -142,14 +142,14 @@ module.exports = {
         }
         // STUDENT IN CLASS QUERY
         try{
-            student_ids = await StudentModel.find({
+            studentIds = await StudentModel.find({
                 listClass: classView._id
             }).lean().populate({
                 path: 'userId',
                 select: 'firstName lastName fullName date_of_birth gender email'
             }).select('grade status parentPhone parentName studentPhone')
             //JSON BEAUTIFY
-            listStudent = student_ids.map((item) => {
+            listStudent = studentIds.map((item) => {
                 item.userId._id = undefined;
                 studentTransform = {...item.userId,...item};
                 studentTransform.userId = undefined;
@@ -235,26 +235,59 @@ module.exports = {
         res.json(classes)
     },
     //========================================================= GET ATTENDANCE OF CLASS ===================================================//
-    attendanceView: async (req,res) => {
+    getAttendance: async (req,res) => {
         let attendances;
+        let queriedAttendances
         try{
-            attendances = await AttendanceModel.find({classId: req.params.id}).lean().populate({
-                path: 'student_id',
+            queriedAttendances = await AttendanceModel.find({
+                classId: req.params.id,
+            }).lean().populate({
+                path: 'studentId',
                 populate: {
                     path: 'userId', 
                     select: 'firstName lastName fullName date_of_birth gender email'
                 }
             })
+            attendances = queriedAttendances.filter((attendance) => {
+                return attendance.studentId.listClass.indexOf(req.params.id) !== -1;
+            })
         }catch(err){
-            return res.status(201).json({error:err})
+            return res.status(201).json({error: err})
         }
-        // JSON BEAUTIFY
         attendances = attendances.map((attendance) => {
-            attendance.student_id = {...attendance.student_id,...attendance.student_id.userId}
-            attendance.student_id.userId = undefined;
-            attendance.student_id.__v = undefined;
+            attendance.studentId = {...attendance.studentId,...attendance.studentId.userId}
+            attendance.studentId.userId = undefined;
+            attendance.studentId.__v = undefined;
             return attendance;
         })
         return res.json(attendances)
+    },
+    //========================================================= GET MAKE UP ATTENDANCE OF CLASS ===================================================//
+    getMakeUpAttendance: async (req,res) => {
+        let makeUpAttendances;
+        let attendances
+        try{
+            attendances = await AttendanceModel.find({
+                classId: req.params.id,
+            }).lean().populate({
+                path: 'studentId',
+                populate: {
+                    path: 'userId', 
+                    select: 'firstName lastName fullName date_of_birth gender email'
+                }
+            })
+            makeUpAttendances = attendances.filter((attendance) => {
+                return attendance.studentId.listClass.indexOf(req.params.id) === -1;
+            })
+        }catch(err){
+            return res.status(201).json({error: err})
+        }
+        makeUpAttendances = makeUpAttendances.map((attendance) => {
+            attendance.studentId = {...attendance.studentId,...attendance.studentId.userId}
+            attendance.studentId.userId = undefined;
+            attendance.studentId.__v = undefined;
+            return attendance;
+        })
+        return res.json(makeUpAttendances)
     }
 }
