@@ -1,6 +1,7 @@
 const ClassModel = require('../models/class.model');
 const StudentModel = require('../models/student.model');
 const AttendanceModel = require('../models/attendance.model')
+const RecordModel = require('../models/record.model')
 
 module.exports = {
     //========================================================= GET CLASSES, OR LOW LEVEL QUERY ===================================================//
@@ -116,6 +117,7 @@ module.exports = {
         let attendances;
         let listStudent;
         let queriedAttendances;
+        let classRecords;
         // CLASS QUERY
         try{
             classView = await ClassModel.findById(req.params.id).lean().populate({
@@ -161,6 +163,14 @@ module.exports = {
         }catch(err){
             return res.status(201).json({error: err})
         }
+        // CLASS RECORD 
+        try{
+            classRecords = await RecordModel.find({
+                classId: req.params.id
+            })
+        }catch(err){
+            return res.status(201).json({error: err})
+        }
         // ATTENDANCE OF STUDENT IN CLASS 
         try{
             queriedAttendances = await AttendanceModel.find({
@@ -197,35 +207,75 @@ module.exports = {
             class: classView,
             listStudent: listStudent,
             attendance: attendance,
-            makeUpAttendances: makeUpAttendances
+            makeUpAttendances: makeUpAttendances,
+            classRecords: classRecords
         })
     }, 
     //========================================================= ADD STUDENT TO CLASS ===================================================//
     addStudent: async (req,res) => {
         let student;
-        try{
-            student = await StudentModel.findById(req.body.studentId)
-            student.listClass.push(req.params.id);
-            student.save() 
-        }catch(err){
-            return res.status(201).json({error:err})
+        let studentIds = req.body.studentId
+        // 2 OR MORE STUDENT IDS
+        if(studentIds.length >= 2 && Array.isArray(studentIds)){
+            for(var studentId of studentIds){
+                try{
+                    student = await StudentModel.findById(studentId)
+                    if(!student) throw "Student Not Found";
+                    if(student.listClass.indexOf(req.params.id) == -1){
+                        student.listClass.push(req.params.id);
+                    }
+                    student.save() 
+                }catch(err){
+                    return res.status(201).json({error:err})
+                }
+            }
+        }else{ // 1 STUDENT ID
+            try{
+                student = await StudentModel.findById(req.body.studentId);
+                if(!student) throw "Student Not Found";
+                if(student.listClass.indexOf(req.params.id) == -1){
+                    student.listClass.push(req.params.id);
+                }
+                student.save() 
+            }catch(err){
+                return res.status(201).json({error:err})
+            }
         }
-        return res.json({result: "added successfully"})
+        return res.json({result:"added successfully"})
     },
     //========================================================= REMOVE STUDENT FROM CLASS ===================================================//
     removeStudent: async (req,res) => {
         let student;
-        try{
-            student = await StudentModel.findById(req.params.studentId)
-            const index = student.listClass.indexOf(req.params.classId);
-            if (index > -1) {
-              student.listClass.splice(index, 1);
+        let studentIds = req.body.studentId
+        // 2 OR MORE STUDENT IDS
+        if(studentIds.length >= 2 && typeof(studentIds) == "array"){
+            for(var studentId of studentIds){
+                try{
+                    student = await StudentModel.findById(studentId);
+                    if(!student) throw "Student Not Found";
+                    var index = student.listClass.indexOf(req.params.id);
+                    if (index > -1) {
+                      student.listClass.splice(index, 1);
+                    }
+                    student.save() 
+                }catch(err){
+                    return res.status(201).json({error:err})
+                }
             }
-            student.save()
-        }catch(err){
-            return res.status(201).json({error:err})
+        }else{ // 1 STUDENT ID
+            try{
+                student = await StudentModel.findById(studentId);
+                if(!student) throw "Student Not Found";
+                var index = student.listClass.indexOf(req.params.id);
+                if (index > -1) {
+                  student.listClass.splice(index, 1);
+                }
+                student.save() 
+            }catch(err){
+                return res.status(201).json({error:err})
+            }
         }
-        return res.json({result: "remove successfully"})
+        return res.json({result:"remove successfully"})
     },
     //========================================================= GET CLASSES VIA GRADE- ===================================================//
     queryGrade: async (req,res) => {

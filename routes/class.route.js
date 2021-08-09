@@ -10,7 +10,7 @@ router.put('/:classId', controller.put);
 router.delete('/:classId', controller.delete);
 // ADD STUDENT & REMOVE STUDENT
 router.put('/add-student/:id', controller.addStudent)
-router.put('/remove-student/:classId/:studentId', controller.removeStudent)
+router.put('/remove-student/:id', controller.removeStudent)
 // QUERY
 // router.get('/detail', controller.query);
 router.get('/detail/:id', controller.classView)

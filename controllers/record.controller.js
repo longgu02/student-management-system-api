@@ -1,5 +1,6 @@
 const RecordModel = require('../models/record.model');
-const StudentRecordModel = require('../models/student-record.model')
+const StudentRecordModel = require('../models/student-record.model');
+const StudentModel = require('../models/student.model');
 
 module.exports = {
     //========================================================= VIEW ALL RECORDS ==============================================================//
@@ -15,6 +16,8 @@ module.exports = {
     },
     //========================================================= CREATE RECORD ==============================================================//
     post: async (req,res) => {
+        let students;
+        let studentRecords;
         const newRecord = new RecordModel({
             name: req.body.name,
             type: req.body.type,
@@ -26,6 +29,18 @@ module.exports = {
             await newRecord.save()
         }catch(err){
             return res.status(201).json({error:err})
+        }
+        students = await StudentModel.find({listClass: req.body.classId}).lean().select('_id');
+        for(var studentId of students){
+            studentRecords = new StudentRecordModel({
+                studentId: studentId,
+                recordId: newRecord._id
+            })
+            try{
+                await studentRecords.save()
+            }catch(err){
+                return res.status(201).json({error: err})
+            }
         }
         return res.json(newRecord);
     },
@@ -47,8 +62,10 @@ module.exports = {
     },
     //========================================================= DELETE RECORD ==============================================================//
     delete: async (req,res) => {
+        let studentRecords;
         try{
-            await RecordModel.findByIdAndDelete(req.params.id)
+            await RecordModel.findByIdAndDelete(req.params.id);
+            await StudentRecordModel.deleteMany({recordId: req.params.id})
         }catch(err){
             return res.status(201).json({error:err})
         }
